@@ -46589,7 +46589,9 @@ function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len 
 
 
 
-var CUE_PROPS_TO_COMPARE = ['text', 'images', 'embeddedImages', 'align', 'fontSize', 'id', 'isd', 'line', 'lineAlign', 'lineHeight', 'linePadding', 'position', 'positionAlign', 'region', 'size', 'snapToLines', 'vertical'];
+var CUE_PROPS_TO_COMPARE = ['text', 'images', 'embeddedImages', 'align', 'fontSize', 'id',
+// 'isd',
+'line', 'lineAlign', 'lineHeight', 'linePadding', 'position', 'positionAlign', 'region', 'size', 'snapToLines', 'vertical'];
 function TextTracks(config) {
   var context = this.context;
   var eventBus = (0,_core_EventBus__WEBPACK_IMPORTED_MODULE_1__["default"])(context).getInstance();
@@ -46919,7 +46921,11 @@ function TextTracks(config) {
   function _cuesContentAreEqual(cue1, cue2, props) {
     for (var i = 0; i < props.length; i++) {
       var key = props[i];
-      if (JSON.stringify(cue1[key]) !== JSON.stringify(cue2[key])) {
+      // Special case for embeddedImages: do not compare image id but only image content
+      // (id may differ if cue is splitted over different segments/chunks)
+      var value1 = key === 'embeddedImages' ? Object.values(cue1[key]) : cue1[key];
+      var value2 = key === 'embeddedImages' ? Object.values(cue2[key]) : cue2[key];
+      if (JSON.stringify(value1) !== JSON.stringify(value2)) {
         return false;
       }
     }
@@ -50212,10 +50218,11 @@ function TTMLParser() {
     cueCounter++;
     return id;
   }
-  function getPrecision(number) {
-    var n = number.toString().split('.');
-    return n.length > 1 ? n[1].length : 0;
-  }
+
+  // function getPrecision(number) {
+  //     var n = number.toString().split('.');
+  //     return n.length > 1 ? n[1].length : 0;
+  // }
 
   /**
    * Parse the raw data and process it to return the HTML element representing the cue.
@@ -50287,13 +50294,13 @@ function TTMLParser() {
         return topLevelContents.contents.length;
       })) {
         //be sure that mediaTimeEvents values are in the mp4 segment time ranges.
-        var cueStartTime = mediaTimeEvents[i] + offsetTime;
-        var cueEndTime = mediaTimeEvents[i + 1] + offsetTime;
-        var segmentStartTime = parseFloat((startTimeSegment + offsetTime).toFixed(getPrecision(cueStartTime)));
-        var segmentEndTime = parseFloat((endTimeSegment + offsetTime).toFixed(getPrecision(cueEndTime)));
-        console.log('## TTML - media time:[' + startTimeSegment + ' - ' + endTimeSegment + '] => [' + segmentStartTime + ' - ' + segmentEndTime + '], cue time:[' + (mediaTimeEvents[i] + offsetTime) + ' - ' + (mediaTimeEvents[i + 1] + offsetTime) + ']');
-        startTime = Math.max(cueStartTime, segmentStartTime);
-        endTime = Math.min(cueEndTime, segmentEndTime);
+        startTime = mediaTimeEvents[i] + offsetTime;
+        endTime = mediaTimeEvents[i + 1] + offsetTime;
+        // const segmentStartTime = parseFloat((startTimeSegment + offsetTime).toFixed(getPrecision(cueStartTime)));
+        // const segmentEndTime = parseFloat((endTimeSegment + offsetTime).toFixed(getPrecision(cueEndTime)));
+        // console.log('## TTML - media time:[' + startTimeSegment + ' - ' + endTimeSegment + '] => [' + segmentStartTime + ' - ' + segmentEndTime + '], cue time:[' + (mediaTimeEvents[i] + offsetTime) + ' - ' + (mediaTimeEvents[i + 1] + offsetTime) + ']');
+        // startTime = Math.max(cueStartTime, segmentStartTime);
+        // endTime = Math.min(cueEndTime, segmentEndTime);
         // startTime = (mediaTimeEvents[i] + offsetTime) < startTimeSegment ? startTimeSegment : (mediaTimeEvents[i] + offsetTime);
         // endTime = (mediaTimeEvents[i + 1] + offsetTime) > endTimeSegment ? endTimeSegment : (mediaTimeEvents[i + 1] + offsetTime);
 
