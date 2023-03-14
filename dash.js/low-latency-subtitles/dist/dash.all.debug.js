@@ -50212,6 +50212,10 @@ function TTMLParser() {
     cueCounter++;
     return id;
   }
+  function getPrecision(number) {
+    var n = number.toString().split('.');
+    return n.length > 1 ? n[1].length : 0;
+  }
 
   /**
    * Parse the raw data and process it to return the HTML element representing the cue.
@@ -50283,8 +50287,16 @@ function TTMLParser() {
         return topLevelContents.contents.length;
       })) {
         //be sure that mediaTimeEvents values are in the mp4 segment time ranges.
-        startTime = mediaTimeEvents[i] + offsetTime < startTimeSegment ? startTimeSegment : mediaTimeEvents[i] + offsetTime;
-        endTime = mediaTimeEvents[i + 1] + offsetTime > endTimeSegment ? endTimeSegment : mediaTimeEvents[i + 1] + offsetTime;
+        var cueStartTime = mediaTimeEvents[i] + offsetTime;
+        var cueEndTime = mediaTimeEvents[i + 1] + offsetTime;
+        var segmentStartTime = parseFloat((startTimeSegment + offsetTime).toFixed(getPrecision(cueStartTime)));
+        var segmentEndTime = parseFloat((endTimeSegment + offsetTime).toFixed(getPrecision(cueEndTime)));
+        console.log('## TTML - media time:[' + startTimeSegment + ' - ' + endTimeSegment + '] => [' + segmentStartTime + ' - ' + segmentEndTime + '], cue time:[' + (mediaTimeEvents[i] + offsetTime) + ' - ' + (mediaTimeEvents[i + 1] + offsetTime) + ']');
+        startTime = Math.max(cueStartTime, segmentStartTime);
+        endTime = Math.min(cueEndTime, segmentEndTime);
+        // startTime = (mediaTimeEvents[i] + offsetTime) < startTimeSegment ? startTimeSegment : (mediaTimeEvents[i] + offsetTime);
+        // endTime = (mediaTimeEvents[i + 1] + offsetTime) > endTimeSegment ? endTimeSegment : (mediaTimeEvents[i + 1] + offsetTime);
+
         if (startTime < endTime) {
           captionArray.push({
             start: startTime,
