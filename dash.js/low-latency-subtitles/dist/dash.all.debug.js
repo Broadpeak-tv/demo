@@ -52114,7 +52114,7 @@ function TextTracks(config) {
     var prevCue = track.cues[track.cues.length - 1]; // Check previous cue endTime with current cue startTime
     // (should we consider an epsilon margin? for example to get around rounding issues)
 
-    if (prevCue.endTime !== cue.startTime) {
+    if (prevCue.endTime < cue.startTime) {
       return false;
     } // Compare cues content
 
@@ -52123,26 +52123,29 @@ function TextTracks(config) {
       return false;
     }
 
-    console.log('## cues are equal, prevCue.endtTime:' + prevCue.startTime + ' - cue.startTime:' + prevCue.endTime, prevCue);
-    console.log('## extend cue:', prevCue.startTime, prevCue.endTime, prevCue);
-    prevCue.endTime = cue.endTime;
+    prevCue.endTime = Math.max(prevCue.endTime, cue.endTime);
+    console.log('### CUE EXT:', prevCue.cueID, '[' + _timeToCueTime(prevCue.startTime) + ' - ' + _timeToCueTime(prevCue.endTime) + ']');
     return true;
   }
 
   function _cuesContentAreEqual(cue1, cue2, props) {
     for (var i = 0; i < props.length; i++) {
-      var key = props[i]; // Special case for images in ISD from IMSC-1: resolve images sources in order to compare images content
+      var key = props[i];
 
-      var value1 = key === 'isd' ? _resolveImagesInContents(cue1, cue1[key].contents) : cue1[key];
-      var value2 = key === 'isd' ? _resolveImagesInContents(cue2, cue2[key].contents) : cue2[key];
-
-      if (JSON.stringify(value1) !== JSON.stringify(value2)) {
+      if (JSON.stringify(cue1[key]) !== JSON.stringify(cue2[key])) {
         return false;
       }
     }
 
     ;
     return true;
+  }
+
+  function _timeToCueTime(time) {
+    var minutes = Math.floor(time % 3600 / 60);
+    var seconds = Math.floor(time % 60);
+    var ms = Math.round((time - Math.floor(time)) * 1000);
+    return minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0') + '.' + ms;
   }
 
   function _resolveImagesInContents(cue, contents) {
@@ -52157,7 +52160,18 @@ function TextTracks(config) {
 
       _resolveImagesInContents(cue, c.contents);
     });
-  }
+  } // function _getImageSource(contents) {
+  //     let imgSrc = null;
+  //     contents.forEach(c => {
+  //         if (c.kind && c.kind === 'image') {
+  //             imgSrc =  c.src;
+  //         } else if (c.contents) {
+  //             imgSrc = _getImageSource(c.contents);
+  //         }
+  //     });
+  //     return imgSrc;
+  // }
+
   /*
    * Add captions to track, store for later adding, or add captions added before
    */
@@ -52194,10 +52208,12 @@ function TextTracks(config) {
 
               track.manualCueList.push(cue);
             } else {
-              console.log('## add cue:', '[' + cue.startTime + ' - ' + cue.endTime + ']', cue);
-
               if (!_extendLastCue(cue, track)) {
-                track.addCue(cue);
+                console.log('### CUE ADD:', cue.cueID, '[' + _timeToCueTime(cue.startTime) + ' - ' + _timeToCueTime(cue.endTime) + ']', _timeToCueTime(videoModel.getTime()), videoModel.getTime() > cue.startTime ? '!! TOO LATE' : ''); // Ignore cue if prior to current playback time
+
+                if (cue.startTime > videoModel.getTime()) {
+                  track.addCue(cue);
+                }
               }
             }
           }
@@ -52231,7 +52247,9 @@ function TextTracks(config) {
     captionContainer.style.left = actualVideoLeft + 'px';
     captionContainer.style.top = actualVideoTop + 'px';
     captionContainer.style.width = actualVideoWidth + 'px';
-    captionContainer.style.height = actualVideoHeight + 'px';
+    captionContainer.style.height = actualVideoHeight + 'px'; // Resolve images sources
+
+    _resolveImagesInContents(cue, cue.isd.contents);
 
     cue.onenter = function () {
       if (track.mode === _constants_Constants__WEBPACK_IMPORTED_MODULE_0__["default"].TEXT_SHOWING) {
@@ -52239,6 +52257,7 @@ function TextTracks(config) {
           _renderCaption(this);
 
           logger.debug('Cue enter id:' + this.cueID);
+          console.log('### ===> CUE ENTER:', this.cueID, _timeToCueTime(videoModel.getTime()));
         } else {
           captionContainer.appendChild(this.cueHTMLElement);
 
@@ -52259,6 +52278,7 @@ function TextTracks(config) {
         for (var i = 0; i < divs.length; ++i) {
           if (divs[i].id === this.cueID) {
             logger.debug('Cue exit id:' + divs[i].id);
+            console.log('## <=== CUE EXIT:', this.cueID, _timeToCueTime(videoModel.getTime()));
             captionContainer.removeChild(divs[i]);
             --i;
           }
@@ -55864,7 +55884,11 @@ function TTMLParser() {
     var accumulated_image_data = '';
     var metadataHandler = {
       onOpenTag: function onOpenTag(ns, name, attrs) {
-        // cope with existing non-compliant content
+        if (name === 'div') {
+          console.log('### Parse TTML DIV:', attrs['begin'], attrs['end']);
+        } // cope with existing non-compliant content
+
+
         if (attrs[' imagetype'] && !attrs[' imageType']) {
           eventBus.trigger(_MediaPlayerEvents__WEBPACK_IMPORTED_MODULE_5__["default"].CONFORMANCE_VIOLATION, {
             level: _constants_ConformanceViolationConstants__WEBPACK_IMPORTED_MODULE_6__["default"].LEVELS.ERROR,
@@ -65479,6 +65503,7 @@ module.exports = function equal(a, b) {
 
                 } else if (node.local === 'div') {
 
+                    console.log('### TTML:', node.attributes['smpte:backgroundImage'].value, node.attributes.begin.value, node.attributes.end.value);
                     if (!(estack[0] instanceof Div || estack[0] instanceof Body)) {
 
                         reportFatal(errorHandler, "Parent of <div> element is not <body> or <div> at " + this.line + "," + this.column + ")");
